@@ -11,23 +11,30 @@ app = Flask(__name__)
 app.secret_key = os.environ['tesis_secret_key']
 
 #app.config.from_object(os.environ['APP_SETTINGS'])
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-UPLOAD_FOLDER = '/static/cv'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 db_user = os.environ['db_user']
 db_pass = os.environ['db_pass']
 db_host = os.environ['db_host']
 db_port = os.environ['db_port']
 
 db = create_engine("postgresql+psycopg2://{}:{}@{}:{}/{}?sslmode=require".format(db_user, db_pass, db_host, db_port, 'postgres'))
+#engine = create_engine('postgres://localhost/simil')
+#Base.metadata.bind = engine
 Base.metadata.bind = db
 
 DBSession = sessionmaker(bind=db)
 session = DBSession()
+'''DBSession = sessionmaker(bind=db)
+session = DBSession()'''
 
 @app.route('/', methods=['GET', 'POST'])
 def showMain():
+    '''
+    Input: 
+        None
+
+    Function for the main page of the application. Handles redirects for signup and login for both kinds of users.
+
+    '''
     if request.method  == 'POST':
         mail = request.form['email']
         password = request.form['password']
@@ -69,13 +76,21 @@ def showMain():
 @app.route('/applicant/new', methods=['GET', 'POST'])
 @app.route('/applicant/new/<string:app_mail>', methods=['GET', 'POST'])
 def newApplicant(app_mail=""):
+    '''
+    Input: 
+        Applicant mail (optional) --> String with the email address given by the user in the main page
+
+    Requests basic information from user and creates new applicant in the database.
+
+    '''
     try:
         if request.method  == 'POST':
             mail = request.form['email']
             password = request.form['password']
             name = request.form['name']
             dbOperations.createApplicant(name, mail, password)
-            applicantID = session.query(Applicant).filter(Applicant.mail == mail).one().id
+            applicantID = dbOperations.getApplicantID(mail)
+
             cv = request.files['file']
 
             #Guarda su CV en el folder static/cv con el nombre CV + el id del usuario
@@ -101,7 +116,7 @@ def demoTestApplicant(applicant_id):
             civil = request.form['civil']
             dependientes = request.form['dependientes']
             estudios = request.form['estudios']
-            dbOperations.addDemo(birthdate, zipcode, gender, civil, dependientes, estudios, applicant_id)
+            dbOperations.addDemoApplicant(birthdate, zipcode, gender, civil, dependientes, estudios, applicant_id)
             return redirect(url_for('personalityTestApplicant', applicant_id = applicant_id))
         return render_template("demoApplicants.html", applicant_id = applicant_id)
     except Exception as e:
@@ -116,6 +131,8 @@ def personalityTestApplicant(applicant_id):
     try:
         if request.method  == 'POST':
             aux = request.form.to_dict()
+            print("ahi va el diccionario")
+            print(aux)
             dbOperations.addPersonality(aux, applicant_id)
             return redirect(url_for('mathTestApplicant', applicant_id = applicant_id))
         return render_template("personalityApplicants.html", applicant_id = applicant_id)
@@ -384,4 +401,4 @@ def showMyApplicants(company_id):
 
 if __name__ == '__main__':
     app.debug = True
-    app.run()#(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=8080)

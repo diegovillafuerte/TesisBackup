@@ -17,6 +17,7 @@ import numpy as np
 from numpy.random import seed, rand, randn
 import matplotlib.pyplot as plt
 import dbOperations
+from sklearn.metrics import classification_report
 
 
 #Importar formateo de dinero
@@ -28,14 +29,15 @@ db_host = os.environ['db_host']
 db_port = os.environ['db_port']
 
 db = create_engine("postgresql+psycopg2://{}:{}@{}:{}/{}?sslmode=require".format(db_user, db_pass, db_host, db_port, 'postgres'))
+#db = create_engine('postgres://localhost/simil')
 Base.metadata.bind = db
 
 DBSession = sessionmaker(bind=db)
 session = DBSession()
 
 #Setup the api key for the api call
-apiKey = os.environ['GOOGLE_API_KEY']
-gmaps = googlemaps.Client(key=apiKey)
+#apiKey = os.environ['GOOGLE_API_KEY']
+#gmaps = googlemaps.Client(key=apiKey)
 
 db_user = os.environ['db_user']
 db_pass = os.environ['db_pass']
@@ -81,8 +83,8 @@ def getCharacteristicVector(tipo, id, job_id):
 		#Obtenemos vector demográfico
 		appDemo = [0,0,0,0,0,0]
 		appDemo[0] = applicant.demografico[0]
-		result = gmaps.distance_matrix(str(applicant.demografico[1])[1:] + ' mexico', job.zipcode + ' mexico')
-		dist = result['rows'][0]['elements'][0]['duration']['value']
+		result = 10 #gmaps.distance_matrix(str(applicant.demografico[1])[1:] + ' mexico', job.zipcode + ' mexico')
+		dist = 10 #result['rows'][0]['elements'][0]['duration']['value']
 		appDemo[1] = dist
 		appDemo[2] = int(str(applicant.demografico[2])[1:])
 		appDemo[3] = int(str(applicant.demografico[3])[1:])
@@ -118,8 +120,8 @@ def getCharacteristicVector(tipo, id, job_id):
 			#Edad
 			jobDemo[0] = jobDemo[0] + i[0]
 			#Distancia entre el domicilio del empleado que contesto la encuesta y su centro de trabajo
-			result = gmaps.distance_matrix( 'mexico ' +  str(i[1])[1:], job.zipcode + ' mexico')
-			dist = result['rows'][0]['elements'][0]['duration']['value']
+			result = 10 #gmaps.distance_matrix( 'mexico ' +  str(i[1])[1:], job.zipcode + ' mexico')
+			dist = 10 #result['rows'][0]['elements'][0]['duration']['value']
 			jobDemo[1] = jobDemo[1] + dist
 			#Género
 			jobDemo[2] = jobDemo[2] + int(str(i[2])[1:])
@@ -139,6 +141,7 @@ def getCharacteristicVector(tipo, id, job_id):
 
 
 def simulateDB(charVector, rows, desv):
+	#usar desviacion menor a 0 (normalmente .1)
 	#set seed for reproducability
 	successRows = int(rows/2)
 	failureRows = rows - successRows
@@ -166,7 +169,7 @@ def simulateDB(charVector, rows, desv):
 	else:
 		mu = .5 - desv
 	sigma = desv
-	gensim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows)
+	gensim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows))
 	base['genero'] = gensim
 
 	#Simulamos estado civil
@@ -177,7 +180,7 @@ def simulateDB(charVector, rows, desv):
 	else:
 		mu = .5 - desv
 	sigma = desv
-	civsim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows)
+	civsim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows))
 	base['edoCivil'] = civsim
 
 	#Simulamos número de dependientes
@@ -185,7 +188,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 10
 	mu = charVector[4]
 	sigma = (1+charVector[4])*desv
-	depsim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows)
+	depsim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows))
 	base['dependientes'] = depsim
 
 	#Simulamos máximo grado de estudios
@@ -193,7 +196,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 5
 	mu = charVector[5]
 	sigma = (1+charVector[5])*desv
-	estsim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows)
+	estsim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=successRows))
 	base['estudios'] = estsim
 
 	#Simulamos personalidad y matemáticas
@@ -223,7 +226,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 1
 	mu = .5
 	sigma = desv
-	sim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows)
+	sim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows))
 	baseaux['genero'] = sim
 
 
@@ -232,7 +235,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 1
 	mu = .5
 	sigma = desv
-	sim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows)
+	sim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows))
 	baseaux['edoCivil'] = sim
 
 	#Simulamos número de dependientes
@@ -240,7 +243,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 10
 	mu = genVector[4]
 	sigma = (1+genVector[4])*desv
-	sim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows)
+	sim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows))
 	baseaux['dependientes'] = sim
 
 	#Simulamos máximo grado de estudios
@@ -248,7 +251,7 @@ def simulateDB(charVector, rows, desv):
 	upper = 5
 	mu = genVector[5]
 	sigma = (1+genVector[5])*desv
-	sim = scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows)
+	sim = np.rint(scipy.stats.truncnorm.rvs((lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=failureRows))
 	baseaux['estudios'] = sim
 
 	#Simulamos personalidad y matemáticas
@@ -283,10 +286,14 @@ def entrenarModeloLog(base):
 	X = base[independientes]
 	y = base['outcome']
 	X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.25,random_state=0)
-	logreg = LogisticRegression()
+	logreg = LogisticRegression(solver = "lbfgs")
 	logreg.fit(X_train,y_train)
 	y_pred=logreg.predict(X_test)
 	matrizConf = metrics.confusion_matrix(y_test, y_pred)
+	print("La matriz de confusion para este modelo es: ")
+	print(matrizConf)
+	print("Y sus estadisticas principales son: ") 
+	print(classification_report(y_test, y_pred))
 	coeffs = logreg.coef_
 	yint = logreg.intercept_
 	coeficientes, intercept = coeffs.tolist()[0], yint.tolist()[0]
@@ -306,25 +313,25 @@ def generaModeloNevo(job_id):
 		modelo.intercept_ = np.array(trabajo.intercept)
 		modelo.classes_ = np.array([False, True])
 		prediction = modelo.predict([vectorCaracteristico])
-		probas = modelo.predict_proba([vectorCaracteristico])
+		#probas = modelo.predict_proba([vectorCaracteristico])
 		if prediction[0] == True: 
 			probas = modelo.predict_proba([vectorCaracteristico])
 			fila = pd.DataFrame({'job' : [trabajo.id] , 'confidence' : [probas[0][1]], 'vector' : [trabajo.coeficientes], 'intercept' : [trabajo.intercept]})
-			similares = similares.append(fila, ignore_index = True)
+			similares = similares.append(fila, ignore_index = True, sort=True)
 	if similares.empty:
 		return False
 	res = [0]*12
 	for index, row in similares.iterrows():
 		peso = row['confidence']/similares.confidence.sum()
-		similares.set_value(index,'weight',peso)
+		similares.at[index, 'weight'] = peso
 	for index, row in similares.iterrows():
 		pesado = [i*row['weight'] for i in row['vector']]
-		similares.set_value(index, 'weighted',pesado)
+		similares.at[index, 'weighted'] = pesado
 		weightedInt = row['weight']*row['intercept']
-		similares.set_value(index, 'weightedInt',weightedInt)
+		similares.at[index, 'weightedInt'] = weightedInt
+
 		for i in range(len(res)):
 			res[i] = res[i] + similares['weighted'][index][i]
-	print(similares)
 	intercept = similares.weightedInt.sum()
 	job = session.query(Job).filter(Job.id == job_id).one()
 	job.coeficientes = res
@@ -333,24 +340,14 @@ def generaModeloNevo(job_id):
 	return True
 
 
-def getMatch(job_id, applicant_id):
-	try:
-		score = session.query(MatchScore).filter(MatchScore.job_id==job_id, MatchScore.applicant_id==applicant_id).one()
-		return score
-	except Exception as e:
-		print(e)
-		flash("Lo sentimos, ocurrió un error en nuestro sistema, por favor vuelve a intentarlo. Si el problema es persistente te pedimos que te pongas en contacto con nosotros")
-		return render_template("main.html")
-
-
 def getListOfMatchesForJob(job_id):
 	try:
 		applicants = session.query(Applicant).all()
 		matches = []
 		for i in applicants:
-			match = getMatch(job_id, i.id)
+			match = dbOperations.getMatch(job_id, i.id)
 			if match.interest_applicant and not match.interest_job and match != 0:
-				matches.append([i.name,getMatch(job_id, i.id).scores,i.id])
+				matches.append([i.name,dbOperations.getMatch(job_id, i.id).scores,i.id])
 		matches.sort(key=lambda x: x[1], reverse=True)
 		return matches
 	except Exception as e:
@@ -360,14 +357,20 @@ def getListOfMatchesForJob(job_id):
 
 
 def getListOfMatchesForApplicant(applicant_id):
-	print("hola, entre a la función")
+	'''
+	Input: 
+		Applicant_id --> Integer
+
+	Returns: 
+		A list containing the matched jobs for the given applicant including all the information to be displayed
+	'''
 	try:
-		jobs = session.query(Job).filter(Job.status==True).all()
+		jobs = dbOperations.getActiveJobs()
 		matches = []
 		for i in jobs:
-			match = getMatch(i.id, applicant_id)
+			match = dbOperations.getMatch(i.id, applicant_id)
 			if not match.interest_applicant and match != 0:
-				company_name = session.query(Company).filter(Company.id == i.company_id).one().name
+				company_name = dbOperations.getCompanyName(i.company_id)
 				matches.append([i.id, i.title, locale.currency(i.salary, grouping=True), i.description, match.scores , company_name])
 		matches.sort(key=lambda x: x[4], reverse=True)
 		return matches

@@ -14,6 +14,8 @@ db_pass = os.environ['db_pass']
 db_host = os.environ['db_host']
 db_port = os.environ['db_port']
 
+#db = create_engine('postgres://localhost/simil')
+
 db = create_engine("postgresql+psycopg2://{}:{}@{}:{}/{}?sslmode=require".format(db_user, db_pass, db_host, db_port, 'postgres'))
 Base.metadata.bind = db
 
@@ -21,19 +23,39 @@ DBSession = sessionmaker(bind=db)
 session = DBSession()
 
 def createMatchScore(score, job_id, applicant_id):
-	#try:
-	match = MatchScore(scores=score, job_id=job_id, applicant_id=applicant_id)
-	session.add(match)
-	session.commit()
-	'''except Exception as e:
+	'''
+	Input: 
+		Score --> Integer
+		Id of a job
+		Id for an applicant
+
+	Creates a Match Score in the database for the given job and applicant pair.
+
+	'''
+	try:
+		match = MatchScore(scores=score, job_id=job_id, applicant_id=applicant_id)
+		session.add(match)
+		session.commit()
+	except Exception as e:
 		print(e)
 		return render_template("main.html")
 		print("El error está en createMatchScore de dbOperations")
 		flash("Lo sentimos, ocurrió un error en nuestro sistema, por favor vuelve a intentarlo.\
-			Si el problema es persistente te pedimos que te pongas en contacto con nosotros")'''
+			Si el problema es persistente te pedimos que te pongas en contacto con nosotros")
 
 
-def addDemo(birthdate, zipcode, gender, civil, dependientes, estudios, applicant_id):
+def addDemoApplicant(birthdate, zipcode, gender, civil, dependientes, estudios, applicant_id):
+	'''
+	Input: 
+		Date of birth 
+		Zipcode
+		Gender
+		Marital status
+		Number of 
+
+	Creates a Match Score in the database for the given job and applicant pair.
+
+	'''
 	try:
 		#distTot es el número de días entre 01/01/1900 y la fecha de nacimiento del aplicante
 		distYears = (int(birthdate[6:10]) - 1900) * 365
@@ -65,7 +87,7 @@ def addDemo(birthdate, zipcode, gender, civil, dependientes, estudios, applicant
 		session.commit()
 	except Exception as e:
 		print(e)
-		print("El error ocurrió en la función addDemo de dbOperations.py")
+		print("El error ocurrió en la función addDemoApplicant de dbOperations.py")
 
 
 def addDemoJob(birthdate, zipcode, gender, civil, dependientes, estudios, company_id, job_id):
@@ -112,6 +134,7 @@ def addDemoJob(birthdate, zipcode, gender, civil, dependientes, estudios, compan
 def addPersonality(response, applicant_id):
 	try:
 		# Calculate Factor I Surgency or Extraversion
+
 		f1 = 0
 		f1 = f1 + int(response['p1'])
 		f1 = f1 - int(response['p6'])
@@ -231,57 +254,59 @@ def addMath(response, applicant_id):
 		aplicante.skills = skills
 		session.commit()
 
+
+		#Seccion en donde se va a crear un matchscore entre este nuevo usuario y todos las vacantes de la plataforma
 		all_jobs = session.query(Job).all()
 		for job in all_jobs:
 			job_id = job.id
 			createMatchScore(magic.matchScore(job_id, applicant_id), job_id, applicant_id)
+		
 	except Exception as e:
 		print(e)
 		print("El error ocurrió en la función addMath the dbOperations.py")
 
 
 def addMathJob(response, job_id):
-	#try:
-	grade = 0
-	questions = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']
-	answers = ['3', '2', '3', '4', '5', '5', '4', '4', '4', '4']
-	for i in range(len(questions)):
-		if response[questions[i]] == answers[i]:
-			grade = grade + 1
-	skill = [grade]
-	job = session.query(Job).filter(Job.id == job_id).one()
-	nuevo = job.skills
-	if nuevo is not None:
-		nuevo.append(skill)
-		session.query(Job).filter(Job.id == job_id).update({"skills":nuevo})
-		session.commit()
-	else:
-		job.skills = [skill]
-		session.commit()
-
-	#Crear los matchscores y ponerlos en la base de datos
-	if(magic.generaModeloNevo(job_id)):
-		check = session.query(MatchScore).filter(MatchScore.job_id == job_id).first()
-		if check is None:
-			all_applicants = session.query(Applicant).all()
-			job = session.query(Job).filter(Job.id == job_id).one()
-			for applicant in all_applicants:
-				applicant_id = applicant.id
-				createMatchScore(magic.matchScore(job_id, applicant_id), job_id, applicant_id)
+	try:
+		grade = 0
+		questions = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']
+		answers = ['3', '2', '3', '4', '5', '5', '4', '4', '4', '4']
+		for i in range(len(questions)):
+			if response[questions[i]] == answers[i]:
+				grade = grade + 1
+		skill = [grade]
+		job = session.query(Job).filter(Job.id == job_id).one()
+		nuevo = job.skills
+		if nuevo is not None:
+			nuevo.append(skill)
+			session.query(Job).filter(Job.id == job_id).update({"skills":nuevo})
+			session.commit()
 		else:
-			scores = session.query(MatchScore).filter(MatchScore.job_id == job_id)
-			for score in scores:
-				applicant_id = score.applicant_id
-				updateMatchScore(magic.matchScore(job_id, applicant_id), job_id, applicant_id)
-	else:
-		jj = session.query(Job).filter(Job.id == job_id).delete()
-		session.commit()
-		flash("Lo lamentamos mucho, por el momento no contamos con la información suficiente para generar recomendaciones para trabajos en esa categoría.")
+			job.skills = [skill]
+			session.commit()
+		#Crear los matchscores y ponerlos en la base de datos
+		if(magic.generaModeloNevo(job_id)):
+			check = session.query(MatchScore).filter(MatchScore.job_id == job_id).first()
+			if check is None:
+				all_applicants = session.query(Applicant).all()
+				job = session.query(Job).filter(Job.id == job_id).one()
+				for applicant in all_applicants:
+					applicant_id = applicant.id
+					createMatchScore(magic.matchScore(job_id, applicant_id), job_id, applicant_id)
+			else:
+				scores = session.query(MatchScore).filter(MatchScore.job_id == job_id)
+				for score in scores:
+					applicant_id = score.applicant_id
+					updateMatchScore(magic.matchScore(job_id, applicant_id), job_id, applicant_id)
+		else:
+			jj = session.query(Job).filter(Job.id == job_id).delete()
+			session.commit()
+			flash("Lo lamentamos mucho, por el momento no contamos con la información suficiente para generar recomendaciones para trabajos en esa categoría.")
 
 
-	'''except Exception as e:
+	except Exception as e:
 		print(e)
-		print("El error ocurrió en la función addMathJob the dbOperations.py")'''
+		print("El error ocurrió en la función addMathJob the dbOperations.py")
 
 
 def validateApplicant(mail, password):
@@ -354,6 +379,36 @@ def getCompanyID(mail):
 		return 0
 
 
+def getActiveJobs():
+	try:
+		return session.query(Job).filter(Job.status==True).all()
+	except Exception as e:
+		print(e)
+		print("The error ocurred in getActiveJobs in dbOperations")
+		flash("Lo sentimos, ocurrió un error en nuestro sistema, por favor vuelve a intentarlo. Si el problema es persistente te pedimos que te pongas en contacto con nosotros")
+		return render_template("main.html")
+
+
+def getMatch(job_id, applicant_id):
+	try:
+		return session.query(MatchScore).filter(MatchScore.job_id==job_id, MatchScore.applicant_id==applicant_id).one()
+	except Exception as e:
+		print(e)
+		print("The error ocurred in getMatch in dbOperations")
+		flash("Lo sentimos, ocurrió un error en nuestro sistema, por favor vuelve a intentarlo. Si el problema es persistente te pedimos que te pongas en contacto con nosotros")
+		return render_template("main.html")
+
+
+def getCompanyName(company_id):
+	try:
+		return session.query(Company).filter(Company.id == company_id).one().name
+	except Exception as e:
+		print(e)
+		print("The error ocurred in getCompanyName in dbOperations")
+		flash("Lo sentimos, ocurrió un error en nuestro sistema, por favor vuelve a intentarlo. Si el problema es persistente te pedimos que te pongas en contacto con nosotros")
+		return render_template("main.html")
+
+
 def createApplicant(name, mail, password):
 	''' Given a name, an email address and a password, it creates an applicant in the database
 		For every applicant it creates it calculates its match score with every job available'''
@@ -385,7 +440,6 @@ def createJob(title, salary, description, company_id, openings, status, zipcode)
 	''' Function for creating a job. Everytime you create one, it creates a match score with every 
 		applicant available and adds it to the db'''
 	try:
-		zipcode
 		trab = Job(title = title, salary = salary, description = description , company_id = company_id, openings=openings, status=status, zipcode=zipcode)
 		session.add(trab)
 		session.commit()
